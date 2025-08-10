@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>QuickTranslate</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <style>
+    :root{
+      --bg:#0a0a0b; --card:#111113; --muted:#9a9aa4; --text:#f4f4f6; --accent:#4bc2ff; --accent-2:#62ffa8;
+      --border:#1f1f26; --radius:16px; --tap:56px; --shadow:0 10px 30px rgba(0,0,0,.35);
+    }
+    *{box-sizing:border-box; -webkit-tap-highlight-color: transparent; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial}
+    html,body{height:100%}
+    body{margin:0;background:linear-gradient(180deg,#060607,#0e0e12); color:var(--text)}
+    .safe{padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right));}
+    header{position:sticky; top:0; z-index:20; backdrop-filter: blur(12px); background:rgba(10,10,12,.6); border-bottom:1px solid var(--border)}
+    .bar{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 0}
+    .brand{font-weight:800; letter-spacing:.2px; font-size:18px}
+    .hamb{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;border-radius:12px;border:1px solid var(--border);background:#14141a}
+    .hamb span{display:block;width:18px;height:2px;background:var(--text);position:relative}
+    .hamb span::before,.hamb span::after{content:"";position:absolute;left:0;width:18px;height:2px;background:var(--text)}
+    .hamb span::before{top:-6px}.hamb span::after{top:6px}
+    .tabs{display:flex; gap:8px; padding:12px 0 0}
+    .seg{flex:1; text-align:center; padding:10px; border-radius:999px; background:#14141a; color:var(--muted); font-weight:700; border:1px solid var(--border)}
+    .seg.active{background:#0f0f13; color:var(--text); border-color:#2b2b33; box-shadow: var(--shadow)}
+    .wrap{max-width:820px; margin:0 auto}
+    .card{background:linear-gradient(180deg,#15151a,#0f0f13); border:1px solid var(--border); border-radius:var(--radius); box-shadow: var(--shadow); padding:14px; margin:12px 0}
+    .label{font-size:13px; color:var(--muted); margin:6px 2px}
+    .grid{display:grid; gap:10px}
+    .two{grid-template-columns: 1fr 1fr}
+    @media (max-width: 520px){ .two{grid-template-columns:1fr} }
+    .row{display:flex; gap:10px; align-items:center}
+    .hint{font-size:12px; color:var(--muted)}
+    .sep{height:1px; background:#202028; margin:12px 0}
+    .actions{position:sticky; bottom:0; z-index:15; padding:12px 0 env(safe-area-inset-bottom); backdrop-filter: blur(10px); background:rgba(10,10,12,.75); border-top:1px solid var(--border)}
+    .actions .row{justify-content:space-between}
+    .grow{flex:1}
+    .copy{white-space:nowrap}
+    .btn{display:inline-flex; align-items:center; justify-content:center; padding:0 16px; border:1px solid var(--border); background:#15151b; color:#f4f4f6; border-radius:14px; height:var(--tap); font-weight:700}
+    .primary{background:linear-gradient(180deg,#1a9fff,#4bc2ff); color:#001014; border:0}
+    .success{background:linear-gradient(180deg,#62ffa8,#37e98a); color:#052015; border:0}
+    .toast{position:fixed; left:50%; transform:translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom)); background:#111114; border:1px solid #2a2a31; padding:10px 14px; border-radius:999px; font-size:14px; opacity:0; transition:.2s; pointer-events:none; z-index: 10001}
+    .toast.show{opacity:1}
+    /* Drawer z-index fix */
+    .drawer{position:fixed; inset:0; display:none; z-index: 10000}
+    .scrim{position:absolute; inset:0; background:rgba(0,0,0,.5); opacity:0; transition:.2s}
+    .panel{position:absolute; top:0; bottom:0; right:0; width:min(92vw,380px); background:#0f0f13; border-left:1px solid var(--border); transform:translateX(100%); transition:.2s; display:flex; flex-direction:column; z-index: 10002}
+    .drawer.open{display:block}
+    .drawer.open .scrim{opacity:1}
+    .drawer.open .panel{transform:none}
+    .panel header{padding:14px 16px; border-bottom:1px solid var(--border); position:sticky; top:0; background:#0f0f13; z-index: 10003}
+    .panel h3{margin:0; font-size:18px}
+    .panel .content{padding:16px; display:grid; gap:12px}
+    input,select,textarea{border:1px solid var(--border); background:#0f0f13; color:#f4f4f6; border-radius:14px; padding:14px 12px; font-size:16px; outline:none; transition:.15s border-color ease}
+    textarea{width:100%; min-height:120px; resize:vertical; line-height:1.35}
+    input:focus,textarea:focus,select:focus{border-color:#2a2a32}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap safe">
+      <div class="bar">
+        <button id="hamb" class="hamb" aria-label="Menu"><span></span></button>
+        <div class="brand">QuickTranslate</div>
+        <div style="width:40px;"></div>
+      </div>
+      <div class="tabs">
+        <button class="seg active" data-tab="send" aria-pressed="true">Translate & Send</button>
+        <button class="seg" data-tab="reply" aria-pressed="false">Translate & Reply</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap safe">
+    <!-- SEND TAB -->
+    <section id="tab-send" class="card">
+      <div class="label">Your message</div>
+      <textarea id="send-input" placeholder="Type your message…"></textarea>
+      <div class="grid two" style="margin-top:10px">
+        <div>
+          <div class="label">Translate to</div>
+          <select id="send-to"></select>
+        </div>
+        <div>
+          <div class="label">Tone</div>
+          <select id="send-tone">
+            <option value="neutral" selected>Neutral</option>
+            <option value="informal_friendly">Informal friendly</option>
+            <option value="formal_friendly">Formal friendly</option>
+          </select>
+        </div>
+      </div>
+      <div class="row" style="align-items:flex-end; margin-top:10px">
+        <button id="send-translate" class="btn primary grow">Translate</button>
+      </div>
+      <div class="sep"></div>
+      <div class="label">Translation</div>
+      <textarea id="send-output" placeholder="Translation will appear here…" readonly></textarea>
+      <div class="row" style="margin-top:8px">
+        <button id="copy-send" class="btn copy">Copy</button>
+        <span class="hint">Paste into WhatsApp/SMS.</span>
+      </div>
+    </section>
+
+    <!-- REPLY TAB -->
+    <section id="tab-reply" class="card" style="display:none">
+      <div class="label">Incoming message</div>
+      <textarea id="reply-incoming" placeholder="Paste the message you received…"></textarea>
+      <div class="grid two" style="margin-top:10px">
+        <div>
+          <div class="label">Incoming language</div>
+          <select id="reply-in-lang"></select>
+        </div>
+        <div class="row" style="align-items:flex-end">
+          <button id="reply-translate-in" class="btn primary grow">Translate to English</button>
+        </div>
+      </div>
+
+      <div class="sep"></div>
+      <div class="label">Incoming (English)</div>
+      <textarea id="reply-in-english" placeholder="English meaning…" readonly></textarea>
+
+      <div class="sep"></div>
+      <div class="label">Your response (any language)</div>
+      <textarea id="reply-draft" placeholder="Type your reply…"></textarea>
+      <div class="grid two" style="margin-top:10px">
+        <div>
+          <div class="label">Translate response to</div>
+          <select id="reply-out-lang"></select>
+        </div>
+        <div>
+          <div class="label">Tone</div>
+          <select id="reply-tone">
+            <option value="neutral" selected>Neutral</option>
+            <option value="informal_friendly">Informal friendly</option>
+            <option value="formal_friendly">Formal friendly</option>
+          </select>
+        </div>
+      </div>
+      <div class="row" style="align-items:flex-end; margin-top:10px">
+        <button id="reply-translate-out" class="btn success grow">Translate Reply</button>
+      </div>
+
+      <div class="sep"></div>
+      <div class="label">Reply (translated)</div>
+      <textarea id="reply-output" placeholder="Copy & paste this back…" readonly></textarea>
+      <div class="row" style="margin-top:8px">
+        <button id="copy-reply" class="btn copy">Copy</button>
+        <span class="hint">Paste into WhatsApp/SMS.</span>
+      </div>
+    </section>
+  </main>
+
+  <div class="actions">
+    <div class="wrap safe">
+      <div class="row">
+        <span class="hint">Tip: Add to Home Screen for an app-like feel.</span>
+        <div class="grow"></div>
+        <button id="scrollTop" class="btn">Top</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast">Copied</div>
+
+  <!-- Drawer -->
+  <div id="drawer" class="drawer" aria-hidden="true">
+    <div id="scrim" class="scrim"></div>
+    <div class="panel" role="dialog" aria-modal="true" aria-label="Menu">
+      <header class="row">
+        <h3 style="margin:0; flex:1">Menu</h3>
+        <button id="closeDrawer" class="btn" style="height:40px">Close</button>
+      </header>
+      <div class="content">
+        <div>
+          <div class="label">OpenAI API key</div>
+          <input id="apiKey" type="password" placeholder="sk-..." autocomplete="off">
+          <button id="saveKeyBtn" class="btn">Save key</button>
+          <div class="hint">Stored locally on this device (localStorage).</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // Utils
+  const $ = (id)=>document.getElementById(id);
+  const toast = $("toast");
+  function showToast(msg="Copied"){
+    toast.textContent = msg;
+    toast.classList.add("show");
+    setTimeout(()=>toast.classList.remove("show"), 1200);
+  }
+
+  // Language options
+  const LANGS = [
+    ["auto", "Auto-detect"],
+    ["en","English"], ["nl","Dutch"], ["ro","Romanian"], ["pt","Portuguese (Brazil)"],
+    ["es","Spanish"], ["fr","French"], ["de","German"], ["it","Italian"]
+  ];
+
+  function fillSelect(id, allowAuto=false){
+    const el = $(id);
+    el.innerHTML = "";
+    LANGS.forEach(([code,name])=>{
+      if(code==="auto" && !allowAuto) return;
+      const o=document.createElement("option");
+      o.value=code; o.textContent=name; el.appendChild(o);
+    });
+  }
+  fillSelect("send-to");
+  fillSelect("reply-in-lang", true);
+  fillSelect("reply-out-lang");
+
+  // Tabs
+  document.querySelectorAll('.seg').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.seg').forEach(b=>{b.classList.remove('active'); b.setAttribute('aria-pressed','false');});
+      btn.classList.add('active'); btn.setAttribute('aria-pressed','true');
+      const tab = btn.dataset.tab;
+      $("tab-send").style.display = tab==="send" ? "block" : "none";
+      $("tab-reply").style.display = tab==="reply" ? "block" : "none";
+      window.scrollTo({top:0, behavior:"smooth"});
+    });
+  });
+
+  // Drawer
+  const drawer = $("drawer"), scrim = $("scrim");
+  $("hamb").addEventListener('click', ()=>{ drawer.classList.add("open"); drawer.setAttribute("aria-hidden","false"); });
+  $("closeDrawer").addEventListener('click', ()=>{ drawer.classList.remove("open"); drawer.setAttribute("aria-hidden","true"); });
+  scrim.addEventListener('click', ()=>{ drawer.classList.remove("open"); drawer.setAttribute("aria-hidden","true"); });
+
+  // API key
+  const apiKeyInput = $("apiKey");
+  const saveBtn = $("saveKeyBtn");
+  apiKeyInput.value = localStorage.getItem('OPENAI_KEY') || "";
+  saveBtn.addEventListener('click', ()=>{
+    localStorage.setItem('OPENAI_KEY', apiKeyInput.value.trim());
+    showToast("API key saved");
+  });
+
+  // Tone mapping
+  function toneInstruction(tone){
+    switch(tone){
+      case "informal_friendly": return "Use an informal, friendly tone (conversational, warm, concise; contractions allowed).";
+      case "formal_friendly": return "Use a formal yet friendly tone (polite, clear, concise; no slang).";
+      default: return "Use a neutral, clear tone.";
+    }
+  }
+
+  // Translate via Responses API
+  async function translateText(text, toLang, fromLang = "auto", tone="neutral") {
+    const key = (localStorage.getItem('OPENAI_KEY')||"").trim();
+    if(!key) throw new Error("Missing API key. Open the menu and save your key.");
+
+    const messages = [
+      {role:"system", content: "You are a precise translator. Output ONLY the final text; preserve emojis and line breaks."},
+      {role:"user", content: JSON.stringify({task:"translate", text, from:fromLang, to:toLang, tone:toneInstruction(tone)})}
+    ];
+
+    const res = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {"Content-Type":"application/json","Authorization":`Bearer ${key}`},
+      body: JSON.stringify({ model: "gpt-4o-mini", input: messages })
+    });
+
+    if(res.status === 429){
+      // Backoff and retry once
+      await new Promise(r=>setTimeout(r, 1200));
+      const retry = await fetch("https://api.openai.com/v1/responses", {
+        method: "POST",
+        headers: {"Content-Type":"application/json","Authorization":`Bearer ${key}`},
+        body: JSON.stringify({ model: "gpt-4o-mini", input: messages })
+      });
+      if(!retry.ok){
+        throw new Error(`API error: 429 (rate limit). Try again in a moment.`);
+      }
+      const jd = await retry.json();
+      return jd.output?.[0]?.content?.[0]?.text?.trim() || "";
+    }
+
+    if(!res.ok){
+      const t = await res.text();
+      throw new Error(`API error: ${res.status} ${t}`);
+    }
+    const data = await res.json();
+    return data.output?.[0]?.content?.[0]?.text?.trim() || "";
+  }
+
+  // Helpers
+  function busy(btn, on, labelBusy="Translating…", labelReady="Translate"){
+    btn.disabled = on;
+    if(on){ btn.dataset.t = btn.textContent; btn.textContent = labelBusy; }
+    else{ btn.textContent = btn.dataset.t || labelReady; }
+  }
+  function copyText(id){
+    const el = $(id);
+    el.focus();
+    el.select(); el.setSelectionRange(0, 99999);
+    document.execCommand("copy");
+    showToast();
+  }
+
+  // SEND
+  const sendBtn = $("send-translate");
+  sendBtn.addEventListener('click', async ()=>{
+    const text = $("send-input").value.trim();
+    const to = $("send-to").value;
+    const tone = $("send-tone").value;
+    if(!text) return;
+    busy(sendBtn,true);
+    try{
+      $("send-output").value = await translateText(text, to, "auto", tone);
+    }catch(e){
+      $("send-output").value = `Error: ${e.message}`;
+    }finally{ busy(sendBtn,false); }
+  });
+  $("copy-send").addEventListener('click', ()=>copyText('send-output'));
+
+  // REPLY
+  const replyInBtn = $("reply-translate-in");
+  replyInBtn.addEventListener('click', async ()=>{
+    const text = $("reply-incoming").value.trim();
+    const from = $("reply-in-lang").value || "auto";
+    if(!text) return;
+    busy(replyInBtn,true);
+    try{
+      $("reply-in-english").value = await translateText(text, "en", from);
+    }catch(e){
+      $("reply-in-english").value = `Error: ${e.message}`;
+    }finally{ busy(replyInBtn,false); }
+  });
+
+  const replyOutBtn = $("reply-translate-out");
+  replyOutBtn.addEventListener('click', async ()=>{
+    const text = $("reply-draft").value.trim();
+    const to = $("reply-out-lang").value;
+    const tone = $("reply-tone").value;
+    if(!text) return;
+    busy(replyOutBtn,true, "Translating…", "Translate Reply");
+    try{
+      $("reply-output").value = await translateText(text, to, "auto", tone);
+    }catch(e){
+      $("reply-output").value = `Error: ${e.message}`;
+    }finally{ busy(replyOutBtn,false, "Translating…", "Translate Reply"); }
+  });
+  $("copy-reply").addEventListener('click', ()=>copyText('reply-output'));
+
+  $("scrollTop").addEventListener('click', ()=>window.scrollTo({top:0, behavior:"smooth"}));
+
+  // Blur inputs on outside tap (iOS)
+  document.addEventListener('touchend', (e)=>{
+    if(!e.target.closest('textarea') && !e.target.closest('input') && !e.target.closest('.panel')){
+      document.activeElement && document.activeElement.blur && document.activeElement.blur();
+    }
+  });
+
+  // PWA
+  if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js'); }
+</script>
+</body>
+</html>
